@@ -20,18 +20,19 @@ namespace Naiwen.TAA
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
-            var camera = renderingData.cameraData.camera;
-            TAAData TaaData;
-            if (!m_TAADatas.TryGetValue(camera, out TaaData))
-            {
-                TaaData = new TAAData();
-                m_TAADatas.Add(camera, TaaData);
-            }
             var stack = VolumeManager.instance.stack;
             var TaaComonent = stack.GetComponent<TemporalAntiAliasing>();
-            if (TaaComonent.IsActive() && !renderingData.cameraData.isSceneViewCamera)
+            if (TaaComonent.IsActive() && !renderingData.cameraData.isSceneViewCamera && !renderingData.cameraData.isPreviewCamera)
             {
-                UpdateTAAData(renderingData, TaaData, TaaComonent);
+                var camera = renderingData.cameraData.camera;
+                TAAData TaaData;
+                if (!m_TAADatas.TryGetValue(camera, out TaaData))
+                {
+                    TaaData = new TAAData();
+                    m_TAADatas.Add(camera, TaaData);
+                }
+
+                UpdateTAAData(ref renderingData, TaaData, TaaComonent);
                 m_cameraSettingPass.Setup(TaaData);
                 renderer.EnqueuePass(m_cameraSettingPass);
                 m_TAAPass.Setup(TaaData, TaaComonent);
@@ -53,7 +54,7 @@ namespace Naiwen.TAA
             m_TAADatas = new Dictionary<Camera, TAAData>();
         }
 
-        void UpdateTAAData(RenderingData renderingData, TAAData TaaData, TemporalAntiAliasing Taa)
+        void UpdateTAAData(ref RenderingData renderingData, TAAData TaaData, TemporalAntiAliasing Taa)
         {
             Camera camera = renderingData.cameraData.camera;
             Vector2 additionalSample = Utils.GenerateRandomOffset()* Taa.spread.value;

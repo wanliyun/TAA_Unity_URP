@@ -6,12 +6,11 @@ namespace Naiwen.TAA
 {
     internal class CameraSettingPass : ScriptableRenderPass
     {
-        ProfilingSampler m_ProfilingSampler;
-        string m_ProfilerTag = "SetCamera";
         TAAData m_TaaData;
         internal CameraSettingPass()
         {
             renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
+            base.profilingSampler = new ProfilingSampler("TAASetCamera");
         }
 
         internal void Setup(TAAData data)
@@ -22,12 +21,12 @@ namespace Naiwen.TAA
         /// <inheritdoc/>
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
-            CommandBuffer cmd = CommandBufferPool.Get(m_ProfilerTag);
-            using (new ProfilingScope(cmd, m_ProfilingSampler))
+            CommandBuffer cmd = CommandBufferPool.Get();
+            using (new ProfilingScope(cmd, profilingSampler))
             {
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
-                CameraData cameraData = renderingData.cameraData;
+                ref CameraData cameraData = ref renderingData.cameraData;
                 cmd.SetViewProjectionMatrices(cameraData.camera.worldToCameraMatrix, m_TaaData.projOverride);
             }
             context.ExecuteCommandBuffer(cmd);

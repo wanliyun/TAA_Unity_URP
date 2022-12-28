@@ -13,7 +13,7 @@ namespace Naiwen.TAA
 
     internal static class ShaderConstants
     {
-         public static readonly int _TAA_Params = Shader.PropertyToID("_TAA_Params");
+        public static readonly int _TAA_Params = Shader.PropertyToID("_TAA_Params");
         public static readonly int _TAA_pre_texture = Shader.PropertyToID("_TAA_Pretexture");
         public static readonly int _TAA_pre_vp = Shader.PropertyToID("_TAA_Pretexture");
         public static readonly int _TAA_PrevViewProjM = Shader.PropertyToID("_PrevViewProjM_TAA");
@@ -30,13 +30,12 @@ namespace Naiwen.TAA
         TAAData m_TaaData;
         TemporalAntiAliasing m_taa;
         Material m_Material;
-        ProfilingSampler m_ProfilingSampler;
-        string m_ProfilerTag = "TAA Pass";
         #endregion
 
         internal TAAPass()
         {
             renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing;
+            base.profilingSampler = new ProfilingSampler("TAA");
         }
 
         internal void Setup(TAAData TaaData,TemporalAntiAliasing Taa)
@@ -44,7 +43,8 @@ namespace Naiwen.TAA
             // Set data
             m_TaaData = TaaData;
             m_taa = Taa;
-            m_Material = new Material(Shader.Find(TaaShader));
+            if(m_Material == null)
+                m_Material = new Material(Shader.Find(TaaShader));
         }
 
         void ClearRT(ref RenderTexture rt)
@@ -93,18 +93,14 @@ namespace Naiwen.TAA
             return false;// same target
         }
 
-        void DoTemporalAntiAliasing(CameraData cameraData, CommandBuffer cmd)
+        void DoTemporalAntiAliasing(ref CameraData cameraData, CommandBuffer cmd)
         {
             var camera = cameraData.camera;
-
-            // Never draw in Preview
-            if (camera.cameraType == CameraType.Preview)
-                return;
             var colorTextureIdentifier = new RenderTargetIdentifier("_CameraColorTexture");
             var descriptor = new RenderTextureDescriptor(camera.scaledPixelWidth, camera.scaledPixelHeight, RenderTextureFormat.DefaultHDR, 16);
             EnsureArray(ref historyBuffer, 2);
-            EnsureRenderTarget(ref historyBuffer[0], descriptor.width, descriptor.height, descriptor.colorFormat, FilterMode.Bilinear);
-            EnsureRenderTarget(ref historyBuffer[1], descriptor.width, descriptor.height, descriptor.colorFormat, FilterMode.Bilinear);
+            EnsureRenderTarget(ref historyBuffer[0], descriptor.width, descriptor.height, RenderTextureFormat.ARGBHalf, FilterMode.Bilinear);
+            EnsureRenderTarget(ref historyBuffer[1], descriptor.width, descriptor.height, RenderTextureFormat.ARGBHalf, FilterMode.Bilinear);
 
             int indexRead = indexWrite;
             indexWrite = (++indexWrite) % 2;
@@ -122,27 +118,20 @@ namespace Naiwen.TAA
             CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.LOWTAAQuality, m_taa.quality.value == MotionBlurQuality.Low);
             cmd.Blit(colorTextureIdentifier, historyBuffer[indexWrite], m_Material);
             cmd.Blit(historyBuffer[indexWrite], colorTextureIdentifier);
-
         }
 
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
-            CommandBuffer cmd = CommandBufferPool.Get(m_ProfilerTag);
-            using (new ProfilingScope(cmd, m_ProfilingSampler))
+            CommandBuffer cmd = CommandBufferPool.Get();
+            using (new ProfilingScope(cmd, base.profilingSampler))
             {
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
-                DoTemporalAntiAliasing(renderingData.cameraData, cmd);
+                DoTemporalAntiAliasing(ref renderingData.cameraData, cmd);
             }
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
-        }
-
-        void ExecuteCommand(ScriptableRenderContext context, CommandBuffer cmd)
-        {
-            context.ExecuteCommandBuffer(cmd);
-            cmd.Clear();
         }
     }
 }

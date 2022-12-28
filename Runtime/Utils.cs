@@ -52,19 +52,10 @@ namespace Naiwen.TAA
         /// <returns>A jittered projection matrix</returns>
         public static Matrix4x4 GetJitteredPerspectiveProjectionMatrix(Camera camera, Vector2 offset)
         {
-            float near = camera.nearClipPlane;
-            float far = camera.farClipPlane;
-
-            float vertical = Mathf.Tan(0.5f * Mathf.Deg2Rad * camera.fieldOfView) * near;
-            float horizontal = vertical * camera.aspect;
-
-            offset.x *= horizontal / (0.5f * camera.pixelWidth);
-            offset.y *= vertical / (0.5f * camera.pixelHeight);
-
             var matrix = camera.projectionMatrix;
 
-            matrix[0, 2] += offset.x / horizontal;
-            matrix[1, 2] += offset.y / vertical;
+            matrix[0, 2] += offset.x * 2 / camera.pixelWidth;
+            matrix[1, 2] += offset.y *2 / camera.pixelHeight;
 
             return matrix;
         }
